@@ -1,0 +1,5 @@
+{
+  "name": "Vault Calculator",
+  "description": "A powerful and visually appealing calculator to project investment growth in a vault, featuring live Solana (SOL) price tracking, detailed monthly breakdowns, and graphical representations of your potential earnings.",
+  "requestFramePermissions": []
+}

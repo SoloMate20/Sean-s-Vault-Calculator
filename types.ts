@@ -1,6 +1,6 @@
 export interface CalculationInput {
   initialDeposit: string;
-  currency: 'SOL' | 'USD';
+  currency: 'SOL' | 'USD' | 'GBP';
   interestRate: string; // monthly percentage
   duration: string; // in months
   performanceFee: string; // monthly percentage

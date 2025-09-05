@@ -5,7 +5,8 @@ import { CalculationInput, CalculationResult, MonthlyData } from './types';
 import { useSolanaPrice } from './hooks/useSolanaPrice';
 import { useExchangeRate } from './hooks/useExchangeRate';
 import Card from './components/Card';
-import { SolanaIcon, LoadingSpinner } from './components/icons';
+import { VaultIcon, LoadingSpinner } from './components/icons';
+import PriceProjectionCard from './components/PriceProjectionCard';
 
 function App() {
   const [input, setInput] = useState<CalculationInput>({
@@ -84,8 +85,10 @@ function App() {
     setTimeout(() => {
       const calculationResult = calculateCompoundInterest();
       setResult(calculationResult);
-      // Set display currency to match input currency on new calculation
-      if (input.currency === 'SOL' || input.currency === 'USD' || input.currency === 'GBP') {
+      // If input is SOL, default display to USD to show projections. Otherwise, match input.
+      if (input.currency === 'SOL') {
+        setDisplayCurrency('USD');
+      } else {
         setDisplayCurrency(input.currency);
       }
       setIsCalculating(false);
@@ -195,7 +198,7 @@ function App() {
       <main className="container mx-auto p-4 md:p-8">
         <header className="text-center mb-8">
           <div className="inline-flex items-center">
-            <SolanaIcon className="w-12 h-12 mr-4" />
+            <VaultIcon className="w-12 h-12 mr-4" />
             <h1 className="text-4xl md:text-5xl font-bold text-gray-50">Vault Calculator</h1>
           </div>
           <p className="text-brand-text-muted mt-2">
@@ -206,7 +209,7 @@ function App() {
         <div className="space-y-8">
           <Card>
             <h2 className="text-2xl font-bold text-gray-50 mb-4 flex items-center">
-              <SolanaIcon className="w-6 h-6 mr-2" />
+              <VaultIcon className="w-6 h-6 mr-2" />
               Live SOL Price
             </h2>
             {solPriceLoading ? <LoadingSpinner className="w-8 h-8 text-brand-yellow" /> :
@@ -229,12 +232,23 @@ function App() {
                     <input type="number" name="initialDeposit" id="initialDeposit" value={input.initialDeposit} onChange={handleInputChange} className="mt-1 block w-full rounded-md bg-brand-bg-dark border-brand-text-muted/50 focus:ring-brand-yellow focus:border-brand-yellow sm:text-sm p-2" step="any" required/>
                   </div>
                   <div>
-                    <label htmlFor="currency" className="block text-sm font-medium text-brand-text-light">Deposit Currency</label>
-                    <select name="currency" id="currency" value={input.currency} onChange={handleInputChange} className="mt-1 block w-full rounded-md bg-brand-bg-dark border-brand-text-muted/50 focus:ring-brand-yellow focus:border-brand-yellow sm:text-sm p-2">
-                      <option>SOL</option>
-                      <option>USD</option>
-                      <option>GBP</option>
-                    </select>
+                    <label className="block text-sm font-medium text-brand-text-light mb-1">Deposit Currency</label>
+                    <div className="mt-1 flex items-center space-x-1 bg-brand-bg-dark p-1 rounded-lg border border-brand-text-muted/50">
+                        {(['SOL', 'USD', 'GBP'] as const).map((c) => (
+                            <button
+                                key={c}
+                                type="button"
+                                onClick={() => setInput(prev => ({ ...prev, currency: c }))}
+                                className={`w-full px-3 py-1.5 rounded-md text-sm font-semibold transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-yellow focus:ring-offset-2 focus:ring-offset-brand-card-bg ${
+                                    input.currency === c
+                                        ? 'bg-brand-yellow text-brand-bg-dark'
+                                        : 'text-brand-text-light hover:bg-brand-text-muted/20'
+                                }`}
+                            >
+                                {c}
+                            </button>
+                        ))}
+                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -305,6 +319,16 @@ function App() {
                     </div>
                   </div>
                 </Card>
+
+                {solPrice && displayCurrency !== 'SOL' && (
+                    <PriceProjectionCard
+                        finalBalanceInSol={result.finalBalance}
+                        solPrice={solPrice}
+                        gbpRate={gbpRate}
+                        displayCurrency={displayCurrency as 'USD' | 'GBP'}
+                    />
+                )}
+
                 <Card>
                   <h2 className="text-2xl font-bold text-gray-50 mb-4">Balance Growth Over Time</h2>
                   <ResponsiveContainer width="100%" height={300}>

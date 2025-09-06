@@ -1,39 +1,314 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vault Calculator</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              'brand-yellow': '#f0c555',
-              'brand-bg-dark': '#013a33',
-              'brand-card-bg': '#024c42',
-              'brand-text-light': '#bbc9cc',
-              'brand-text-muted': '#69aca3',
-            },
-          },
-        },
-      }
-    </script>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@18.3.1",
-    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
-    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
-    "recharts": "https://esm.sh/recharts@2.12.7"
-  }
-}
-</script>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Vault Calculator</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme:{extend:{colors:{
+        'brand-bg-dark':'#013a33',
+        'brand-card-bg':'#024c42',
+        'brand-yellow' :'#f0c555',
+        'brand-text'   :'#bbc9cc',
+        'brand-muted'  :'#69aca3'
+    }}}}
+  </script>
+
+  <!-- React UMD + Babel -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+  <!-- field styling -->
+  <style>
+    .input-label{font-weight:700;color:#f0c555;margin-bottom:.4rem;display:block}
+    .input-field{
+      background:#024c42;border:1px solid #f0c555;border-radius:.75rem;
+      padding:.75rem 1rem;font-weight:600;font-size:1rem;color:#bbc9cc;width:100%
+    }
+    select.input-field{
+      appearance:none;
+      background-image:url("data:image/svg+xml;utf8,<svg fill='%23f0c555' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5H7z'/></svg>");
+      background-repeat:no-repeat;background-position:right .9rem center;padding-right:2.2rem
+    }
+  </style>
 </head>
-  <body class="bg-brand-bg-dark">
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+
+<body class="bg-brand-bg-dark text-brand-text min-h-screen flex flex-col p-6">
+
+  <!-- live price banner -->
+  <div class="text-center mb-8">
+    <div id="sol-price-banner" class="inline-block bg-brand-card-bg border border-brand-yellow/50 rounded-full px-6 py-2 text-brand-yellow text-lg font-semibold shadow-md">
+      Loading live SOL price…
+    </div>
+  </div>
+
+  <div id="app" class="max-w-3xl mx-auto flex-grow"></div>
+
+  <footer class="max-w-3xl mx-auto mt-10 text-center text-xs text-brand-muted leading-snug">
+    This tool is for illustrative purposes only and does <em>not</em> constitute financial advice.<br>
+    Market prices, yields, and exchange rates are volatile. Always do your own research and consult a qualified adviser.
+  </footer>
+
+  <script type="text/babel">
+  const {useState,useEffect}=React;
+  const USD=v=>v.toLocaleString('en-US',{style:'currency',currency:'USD'});
+  const GBP=v=>v.toLocaleString('en-GB',{style:'currency',currency:'GBP'});
+  const EUR=v=>v.toLocaleString('de-DE',{style:'currency',currency:'EUR'});
+  const fetchJSON=u=>fetch(u).then(r=>{if(!r.ok)throw Error();return r.json()});
+
+  function App(){
+    /* inputs */
+    const [init,setInit]=useState(1000);
+    const [daily,setDaily]=useState(0.01);
+    const [months,setMonths]=useState(12);
+    const [feePct,setFee]=useState(25);
+    const [ccy,setCcy]=useState('USD');
+    const [comp, setComp] = useState('Vault Standard');
+
+    /* market */
+    const [sol,setSol]=useState(null);
+    const [gbp,setGbp]=useState(null);
+    const [eur,setEur]=useState(null);
+
+    const [res,setRes]=useState(null);
+
+    /* fetch prices once */
+    useEffect(()=>{
+      Promise.all([
+        fetchJSON('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd'),
+        fetchJSON('https://api.exchangerate-api.com/v4/latest/USD')
+      ])
+      .then(([sp,fx])=>{
+        setSol(sp.solana.usd);
+        setGbp(fx.rates.GBP);
+        setEur(fx.rates.EUR);
+        document.getElementById('sol-price-banner').textContent =
+          `Live SOL Price: ${USD(sp.solana.usd)}`;
+      })
+      .catch(()=>document.getElementById('sol-price-banner').textContent =
+        'Live SOL price unavailable');
+    },[]);
+
+    /* calculation logic */
+    useEffect(()=>{
+      if(!sol||!gbp||!eur) return;
+
+      const principal = parseFloat(init);
+      const dailyRate = parseFloat(daily);
+      const durationMonths = parseInt(months, 10);
+      const feeRate = parseFloat(feePct) / 100;
+
+      if (isNaN(principal) || isNaN(dailyRate) || isNaN(durationMonths) || isNaN(feeRate) || durationMonths <= 0 || principal <= 0) {
+        setRes(null);
+        return;
+      }
+
+      let currentBalance = principal;
+      const monthlyBreakdown = [];
+      const daysInMonth = 30.4375; // Average days in a month
+
+      for (let m = 1; m <= durationMonths; m++) {
+        const startOfMonthBalance = currentBalance;
+        let interestForMonth = 0;
+
+        if (comp === 'Vault Standard') {
+          const periodsPerMonth = 4.5 * 4.33; // ~19.5
+          const numPeriods = Math.round(periodsPerMonth);
+          const periodRate = Math.pow(1 + dailyRate, daysInMonth / periodsPerMonth) - 1;
+          
+          let balanceAfterCompounding = startOfMonthBalance;
+          for (let p = 0; p < numPeriods; p++) {
+            balanceAfterCompounding *= (1 + periodRate);
+          }
+          interestForMonth = balanceAfterCompounding - startOfMonthBalance;
+
+        } else if (comp === 'Daily') {
+          const numDays = Math.round(daysInMonth);
+          const balanceAfterCompounding = startOfMonthBalance * Math.pow(1 + dailyRate, numDays);
+          interestForMonth = balanceAfterCompounding - startOfMonthBalance;
+        
+        } else if (comp === 'Monthly') {
+          const monthlyRate = Math.pow(1 + dailyRate, daysInMonth) - 1;
+          interestForMonth = startOfMonthBalance * monthlyRate;
+        }
+
+        const feeForMonth = interestForMonth * feeRate;
+        currentBalance = startOfMonthBalance + interestForMonth - feeForMonth;
+        
+        monthlyBreakdown.push({
+          m: m,
+          start: startOfMonthBalance,
+          interest: interestForMonth,
+          perf: feeForMonth,
+          end: currentBalance,
+        });
+      }
+
+      const finalBalance = currentBalance;
+      const totalGrossInterest = monthlyBreakdown.reduce((sum, row) => sum + row.interest, 0);
+      const totalFees = monthlyBreakdown.reduce((sum, row) => sum + row.perf, 0);
+      
+      setRes({
+        final: finalBalance,
+        interest: totalGrossInterest,
+        fees: totalFees,
+        rows: monthlyBreakdown,
+      });
+
+    },[init,daily,months,feePct,comp,sol,gbp,eur]);
+
+    const fmt = v => {
+      if (ccy === 'GBP') return GBP(v);
+      if (ccy === 'EUR') return EUR(v);
+      if (ccy === 'SOL') return v.toFixed(4) + ' SOL';
+      return USD(v); // Default is USD
+    };
+
+    const renderCell = (value) => {
+      if (ccy !== 'SOL' || !sol) {
+        return fmt(value);
+      }
+      return (
+        <React.Fragment>
+          <div>{fmt(value)}</div>
+          <div class="text-xs text-brand-muted/80">{USD(value * sol)}</div>
+        </React.Fragment>
+      );
+    };
+
+    return (
+      <div class="space-y-10">
+        <div class="text-center">
+          <h1 class="text-4xl sm:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-yellow to-yellow-300 tracking-wide">Vault Investment Calculator</h1>
+          <p class="text-brand-muted text-lg -mt-1">Based on a SOL Pairing</p>
+        </div>
+
+        <section class="bg-brand-card-bg rounded-xl p-8 grid gap-x-8 gap-y-6 sm:grid-cols-2">
+          <div>
+            <label class="input-label">Initial deposit</label>
+            <input type="number" class="input-field" value={init} onChange={e=>setInit(e.target.value)}/>
+            {ccy === 'SOL' && sol && parseFloat(init) > 0 && (
+              <p class="text-xs text-brand-muted mt-2 text-right">
+                ≈ {USD(parseFloat(init) * sol)}
+              </p>
+            )}
+          </div>
+          <div>
+            <label class="input-label">Currency</label>
+            <select class="input-field" value={ccy} onChange={e=>setCcy(e.target.value)}>
+              <option>USD</option><option>GBP</option><option>EUR</option><option>SOL</option>
+            </select>
+          </div>
+          <div>
+            <label class="input-label">Daily interest</label>
+            <select class="input-field" value={daily} onChange={e=>setDaily(Number(e.target.value))}>
+              <option value={0.01}>1 % per day</option>
+              <option value={0.015}>1.5 % per day</option>
+            </select>
+          </div>
+          <div>
+            <label class="input-label">Duration (months)</label>
+            <input type="number" class="input-field" value={months} onChange={e=>setMonths(e.target.value)}/>
+          </div>
+          <div>
+            <label class="input-label">Performance fee %</label>
+            <input type="number" class="input-field" value={feePct} onChange={e=>setFee(e.target.value)}/>
+          </div>
+          <div>
+            <label class="input-label">Compounding</label>
+            <select class="input-field" value={comp} onChange={e=>setComp(e.target.value)}>
+                <option>Vault Standard</option>
+                <option>Daily</option>
+                <option>Monthly</option>
+            </select>
+            <p class="text-xs text-brand-muted mt-2">Vault Standard approximates 19.5 compounding periods per month.</p>
+          </div>
+        </section>
+
+        {res&&(
+          <section class="bg-brand-card-bg rounded-xl p-8 space-y-6">
+            <h2 class="text-xl font-semibold text-brand-yellow">Summary</h2>
+            <p>Final balance: <strong>{fmt(res.final)}</strong></p>
+            <p>Total interest: {fmt(res.interest)}</p>
+            <p>Total fees: {fmt(res.fees)}</p>
+
+            <details class="mt-4">
+              <summary class="underline cursor-pointer text-brand-muted hover:text-brand-text">Monthly breakdown</summary>
+              <table class="w-full text-sm mt-3 text-center">
+                <thead><tr class="border-b border-brand-muted/50"><th class="py-2">M</th><th>Start</th><th>Int</th><th>Fee</th><th>End</th></tr></thead>
+                <tbody>
+                  {res.rows.map(r=>(
+                    <tr key={r.m} class="border-b border-brand-muted/20">
+                      <td class="py-2">{r.m}</td>
+                      <td class="py-2">{renderCell(r.start)}</td>
+                      <td class="py-2">{renderCell(r.interest)}</td>
+                      <td class="py-2">{renderCell(r.perf)}</td>
+                      <td class="py-2">{renderCell(r.end)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+
+            <h2 class="text-xl font-semibold text-brand-yellow mt-6">Price scenarios</h2>
+            <div class="grid gap-4 sm:grid-cols-3">
+              {[-.2,0,.2].map(mult=>{
+                if(!sol) return null;
+
+                const newSolPriceUSD = sol * (1 + mult);
+                let projectedBalanceDisplay;
+
+                if (ccy === 'SOL') {
+                  const finalBalanceInSOL = res.final;
+                  const projectedBalanceUSD = finalBalanceInSOL * newSolPriceUSD;
+                  projectedBalanceDisplay = (
+                    <div>
+                      <div>{finalBalanceInSOL.toFixed(4) + ' SOL'}</div>
+                      <div class="text-sm font-normal text-brand-muted">{USD(projectedBalanceUSD)}</div>
+                    </div>
+                  );
+                } else {
+                  let finalBalanceInUSD = res.final;
+                  if (ccy === 'GBP' && gbp) finalBalanceInUSD /= gbp;
+                  if (ccy === 'EUR' && eur) finalBalanceInUSD /= eur;
+
+                  const finalBalanceInSOL = finalBalanceInUSD / sol;
+                  const projectedBalanceUSD = finalBalanceInSOL * newSolPriceUSD;
+
+                  if (ccy === 'GBP' && gbp) {
+                    projectedBalanceDisplay = GBP(projectedBalanceUSD * gbp);
+                  } else if (ccy === 'EUR' && eur) {
+                    projectedBalanceDisplay = EUR(projectedBalanceUSD * eur);
+                  } else {
+                    projectedBalanceDisplay = USD(projectedBalanceUSD);
+                  }
+                }
+
+                const tag=mult===0?'Current':mult>0?'+20%':'-20%';
+                
+                return (
+                  <div key={mult} class="bg-brand-bg-dark rounded p-4 text-center">
+                    <p class="text-brand-yellow font-semibold">{tag}</p>
+                    <p class="text-sm">SOL @ {USD(newSolPriceUSD)}</p>
+                    <div class="text-lg font-bold mt-1">
+                      {projectedBalanceDisplay}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('app')).render(<App/>);
+  </script>
+</body>
 </html>

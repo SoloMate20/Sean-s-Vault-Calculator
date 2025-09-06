@@ -1,7 +1,0 @@
-{
-  "homepage": "https://solomate20.github.io/Sean-s-Vault-Calculator",
-  "scripts": {
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
-  }
-}

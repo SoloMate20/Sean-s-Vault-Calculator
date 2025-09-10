@@ -229,7 +229,7 @@
             <input type="number" class="input-field" value={months} onChange={e=>setMonths(e.target.value)}/>
           </div>
           <div>
-            <label class="input-label">Number of Days Compounding</label>
+            <label class="input-label">Number of Days Compounding Per Month</label>
             <select class="input-field" value={compoundingPeriods} onChange={e=>setCompoundingPeriods(Number(e.target.value))}>
               {Array.from({ length: 30 }, (_, i) => i + 1).map(p => (
                 <option key={p} value={p}>{p}</option>

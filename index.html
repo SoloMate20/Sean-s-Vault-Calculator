@@ -136,30 +136,30 @@
       for (let m = 1; m <= durationMonths; m++) {
         const startOfMonthBalance = currentBalance;
         
-        // Treat daily rate as nominal and calculate monthly interest based on compounding periods
+        // Treat daily rate as nominal and calculate monthly earnings based on compounding periods
         const nominalMonthlyRate = dailyRate * daysInMonth;
         const numPeriods = parseInt(compoundingPeriods, 10);
-        const interestForMonth = startOfMonthBalance * (Math.pow(1 + nominalMonthlyRate / numPeriods, numPeriods) - 1);
+        const earningsForMonth = startOfMonthBalance * (Math.pow(1 + nominalMonthlyRate / numPeriods, numPeriods) - 1);
 
-        const feeForMonth = interestForMonth * feeRate;
-        currentBalance = startOfMonthBalance + interestForMonth - feeForMonth;
+        const feeForMonth = earningsForMonth * feeRate;
+        currentBalance = startOfMonthBalance + earningsForMonth - feeForMonth;
         
         monthlyBreakdown.push({
           m: m,
           start: startOfMonthBalance,
-          interest: interestForMonth,
+          earnings: earningsForMonth,
           perf: feeForMonth,
           end: currentBalance,
         });
       }
 
       const finalBalance = currentBalance;
-      const totalGrossInterest = monthlyBreakdown.reduce((sum, row) => sum + row.interest, 0);
+      const totalGrossEarnings = monthlyBreakdown.reduce((sum, row) => sum + row.earnings, 0);
       const totalFees = monthlyBreakdown.reduce((sum, row) => sum + row.perf, 0);
       
       setRes({
         final: finalBalance,
-        interest: totalGrossInterest,
+        earnings: totalGrossEarnings,
         fees: totalFees,
         rows: monthlyBreakdown,
       });
@@ -209,7 +209,7 @@
             </select>
           </div>
           <div>
-            <label class="input-label">Average Daily Interest</label>
+            <label class="input-label">Average Daily Earnings</label>
             <select class="input-field" value={daily} onChange={e=>setDaily(Number(e.target.value))}>
               <option value={0.005}>0.5 % per day</option>
               <option value={0.006}>0.6 % per day</option>
@@ -242,19 +242,19 @@
           <section class="bg-brand-card-bg rounded-xl p-8 space-y-6 text-brand-text">
             <h2 class="text-xl font-semibold text-brand-yellow">Summary</h2>
             <p>Final balance: <strong>{fmt(res.final)}</strong></p>
-            <p>Total interest: {fmt(res.interest)}</p>
+            <p>Total earnings: {fmt(res.earnings)}</p>
             <p>Total fees: {fmt(res.fees)}</p>
 
             <details class="mt-4">
               <summary class="underline cursor-pointer text-brand-text hover:text-brand-yellow">Monthly breakdown</summary>
               <table class="w-full text-sm mt-3 text-center text-brand-text">
-                <thead><tr class="border-b border-brand-muted/50"><th class="py-2">M</th><th>Start</th><th>Int</th><th>Fee</th><th>End</th></tr></thead>
+                <thead><tr class="border-b border-brand-muted/50"><th class="py-2">M</th><th>Start</th><th>Earn</th><th>Fee</th><th>End</th></tr></thead>
                 <tbody>
                   {res.rows.map(r=>(
                     <tr key={r.m} class="border-b border-brand-muted/20">
                       <td class="py-2">{r.m}</td>
                       <td class="py-2">{renderCell(r.start)}</td>
-                      <td class="py-2">{renderCell(r.interest)}</td>
+                      <td class="py-2">{renderCell(r.earnings)}</td>
                       <td class="py-2">{renderCell(r.perf)}</td>
                       <td class="py-2">{renderCell(r.end)}</td>
                     </tr>

@@ -1,9 +1,10 @@
+
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Vault Calculator</title>
+  <title>Vault NewsCast Studio - Calculator</title>
 
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -35,6 +36,17 @@
       background-image:url("data:image/svg+xml;utf8,<svg fill='%23f0c555' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5H7z'/></svg>");
       background-repeat:no-repeat;background-position:right .9rem center;padding-right:2.2rem
     }
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      background: rgba(240, 197, 85, 0.1);
+      border: 1px solid rgba(240, 197, 85, 0.3);
+      color: #f0c555;
+    }
   </style>
 </head>
 
@@ -50,8 +62,8 @@
   <div id="app" class="max-w-3xl mx-auto flex-grow"></div>
 
   <footer class="max-w-3xl mx-auto mt-10 text-center text-xs text-brand-muted leading-snug">
-    Disclaimer: This tool is for illustrative purposes only and does not constitute financial advice.<br>
-    Crypto Market prices, yields, and exchange rates are volatile. Always do your own research and only invest what you can afford to.
+    Disclaimer: This tool uses a daily accrual model with monthly compounding (30-day cycle).<br>
+    A 25% performance fee is deducted from gross monthly earnings before compounding.
   </footer>
 
   <script type="text/babel">
@@ -67,9 +79,7 @@
     const [init,setInit]=useState(1000);
     const [daily,setDaily]=useState(0.01);
     const [months,setMonths]=useState(12);
-    const [feePct,setFee]=useState(25);
     const [ccy,setCcy]=useState('USD');
-    const [compoundingPeriods, setCompoundingPeriods] = useState(20);
 
     /* market */
     const [cryptoPrice, setCryptoPrice]=useState(null);
@@ -112,7 +122,7 @@
       });
     },[cryptoId]);
 
-    /* calculation logic */
+    /* Updated calculation logic: Daily Accrual / Monthly Compounding */
     useEffect(()=>{
       if(!cryptoPrice||!gbp||!eur) {
         setRes(null);
@@ -120,51 +130,54 @@
       };
 
       const principal = parseFloat(init);
-      const dailyRate = parseFloat(daily);
+      const dailyYield = parseFloat(daily);
       const durationMonths = parseInt(months, 10);
-      const feeRate = parseFloat(feePct) / 100;
+      const feeRate = 0.25; // Fixed 25% performance fee
 
-      if (isNaN(principal) || isNaN(dailyRate) || isNaN(durationMonths) || isNaN(feeRate) || durationMonths <= 0 || principal <= 0) {
+      if (isNaN(principal) || isNaN(dailyYield) || isNaN(durationMonths) || durationMonths <= 0 || principal <= 0) {
         setRes(null);
         return;
       }
 
       let currentBalance = principal;
       const monthlyBreakdown = [];
-      const daysInMonth = 30.4375; // Average days in a month
+      const daysInCycle = 30; // 30-day period as per instructions
 
       for (let m = 1; m <= durationMonths; m++) {
         const startOfMonthBalance = currentBalance;
         
-        // Treat daily rate as nominal and calculate monthly earnings based on compounding periods
-        const nominalMonthlyRate = dailyRate * daysInMonth;
-        const numPeriods = parseInt(compoundingPeriods, 10);
-        const earningsForMonth = startOfMonthBalance * (Math.pow(1 + nominalMonthlyRate / numPeriods, numPeriods) - 1);
+        // 1. Daily Accrual (Simple interest applied to the month's starting principal)
+        const dailyEarning = startOfMonthBalance * dailyYield;
+        const grossMonthlyEarnings = dailyEarning * daysInCycle;
 
-        const feeForMonth = earningsForMonth * feeRate;
-        currentBalance = startOfMonthBalance + earningsForMonth - feeForMonth;
+        // 2. Monthly Compounding & Fee Deduction
+        const performanceFee = grossMonthlyEarnings * feeRate;
+        const netAddedToPrincipal = grossMonthlyEarnings - performanceFee;
+        
+        // 3. Reset daily counter & Update Principal for next month
+        currentBalance = startOfMonthBalance + netAddedToPrincipal;
         
         monthlyBreakdown.push({
           m: m,
           start: startOfMonthBalance,
-          earnings: earningsForMonth,
-          perf: feeForMonth,
+          grossEarnings: grossMonthlyEarnings,
+          fee: performanceFee,
+          netAdded: netAddedToPrincipal,
           end: currentBalance,
         });
       }
 
-      const finalBalance = currentBalance;
-      const totalGrossEarnings = monthlyBreakdown.reduce((sum, row) => sum + row.earnings, 0);
-      const totalFees = monthlyBreakdown.reduce((sum, row) => sum + row.perf, 0);
+      const totalGross = monthlyBreakdown.reduce((sum, row) => sum + row.grossEarnings, 0);
+      const totalFees = monthlyBreakdown.reduce((sum, row) => sum + row.fee, 0);
       
       setRes({
-        final: finalBalance,
-        earnings: totalGrossEarnings,
-        fees: totalFees,
+        final: currentBalance,
+        totalGross: totalGross,
+        totalFees: totalFees,
         rows: monthlyBreakdown,
       });
 
-    },[init,daily,months,feePct,compoundingPeriods,cryptoPrice,gbp,eur]);
+    },[init, daily, months, cryptoPrice, gbp, eur]);
 
     const fmt = v => {
       if (ccy === 'GBP') return GBP(v);
@@ -180,87 +193,109 @@
       return (
         <React.Fragment>
           <div>{fmt(value)}</div>
-          <div class="text-xs text-brand-text">{USD(value * cryptoPrice)}</div>
+          <div className="text-[10px] text-brand-muted">{USD(value * cryptoPrice)}</div>
         </React.Fragment>
       );
     };
 
     return (
-      <div class="space-y-10">
-        <div class="text-center">
-          <h1 class="text-4xl sm:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-yellow to-yellow-300 tracking-wide">Vault Estimated Earnings Calculator</h1>
-          <p class="text-brand-muted text-lg -mt-1">Based on Solana USDC Pairing</p>
+      <div className="space-y-10">
+        <div className="text-center">
+          <h1 className="text-4xl sm:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-yellow to-yellow-300 tracking-wide">Vault Accrual Estimator</h1>
+          <p className="text-brand-muted text-lg -mt-1">Performance-Adjusted Daily Accrual Logic</p>
+          
+          <div className="mt-6 max-w-xl mx-auto bg-brand-yellow/5 border border-brand-yellow/20 rounded-xl p-4 text-xs sm:text-sm text-brand-yellow/90 italic leading-relaxed shadow-inner">
+            <span className="font-bold not-italic block mb-1 underline">IMPORTANT NOTE</span>
+            Note, the financial calculations are based on the current Solana price. The price may go up as well as down. This calculator represents the High Yield Calculation (Monthly Compounding).
+          </div>
         </div>
 
-        <section class="bg-brand-card-bg rounded-xl p-8 grid gap-x-8 gap-y-6 sm:grid-cols-2">
+        <section className="bg-brand-card-bg rounded-2xl p-8 grid gap-x-8 gap-y-6 sm:grid-cols-2 shadow-xl border border-brand-yellow/10">
           <div>
-            <label class="input-label">Initial deposit</label>
-            <input type="number" class="input-field" value={init} onChange={e=>setInit(e.target.value)}/>
+            <label className="input-label">Initial Principal</label>
+            <input type="number" className="input-field" value={init} onChange={e=>setInit(e.target.value)}/>
             {ccy === cryptoSymbol && cryptoPrice && parseFloat(init) > 0 && (
-              <p class="text-xs text-brand-muted mt-2 text-right">
+              <p className="text-xs text-brand-muted mt-2 text-right">
                 ≈ {USD(parseFloat(init) * cryptoPrice)}
               </p>
             )}
           </div>
           <div>
-            <label class="input-label">Currency</label>
-            <select class="input-field" value={ccy} onChange={e=>setCcy(e.target.value)}>
+            <label className="input-label">Display Currency</label>
+            <select className="input-field" value={ccy} onChange={e=>setCcy(e.target.value)}>
               <option>USD</option><option>GBP</option><option>EUR</option><option>{cryptoSymbol}</option>
             </select>
           </div>
           <div>
-            <label class="input-label">Average Daily Earnings</label>
-            <select class="input-field" value={daily} onChange={e=>setDaily(Number(e.target.value))}>
-              <option value={0.005}>0.5 % per day</option>
-              <option value={0.006}>0.6 % per day</option>
-              <option value={0.007}>0.7 % per day</option>
-              <option value={0.008}>0.8 % per day</option>
-              <option value={0.009}>0.9 % per day</option>
-              <option value={0.01}>1 % per day</option>
-              <option value={0.011}>1.1 % per day</option>
-              <option value={0.012}>1.2 % per day</option>
-              <option value={0.013}>1.3 % per day</option>
-              <option value={0.014}>1.4 % per day</option>
-              <option value={0.015}>1.5 % per day</option>
+            <label className="input-label">Average Daily Yield (%)</label>
+            <select className="input-field" value={daily} onChange={e=>setDaily(Number(e.target.value))}>
+              <option value={0.005}>0.5 % Daily</option>
+              <option value={0.0075}>0.75 % Daily</option>
+              <option value={0.01}>1.0 % Daily</option>
+              <option value={0.0125}>1.25 % Daily</option>
+              <option value={0.015}>1.5 % Daily</option>
+              <option value={0.02}>2.0 % Daily</option>
             </select>
           </div>
           <div>
-            <label class="input-label">Duration (months)</label>
-            <input type="number" class="input-field" value={months} onChange={e=>setMonths(e.target.value)}/>
-          </div>
-          <div>
-            <label class="input-label">Number of Days Compounding Per Month</label>
-            <select class="input-field" value={compoundingPeriods} onChange={e=>setCompoundingPeriods(Number(e.target.value))}>
-              {Array.from({ length: 30 }, (_, i) => i + 1).map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
+            <label className="input-label">Duration (months)</label>
+            <input type="number" className="input-field" value={months} onChange={e=>setMonths(e.target.value)}/>
           </div>
         </section>
 
         {res && cryptoPrice && (
-          <section class="bg-brand-card-bg rounded-xl p-8 space-y-6 text-brand-text">
-            <h2 class="text-xl font-semibold text-brand-yellow">Summary</h2>
-            <p>Final balance: <strong>{fmt(res.final)}</strong></p>
-            <p>Total earnings: {fmt(res.earnings)}</p>
-            <p>Total fees: {fmt(res.fees)}</p>
+          <section className="bg-brand-card-bg rounded-2xl p-8 space-y-6 text-brand-text shadow-2xl border-t-4 border-brand-yellow relative overflow-hidden">
+            <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+               <span className="badge">Monthly Compounding</span>
+               <span className="badge">25% Fee Applied</span>
+            </div>
+            
+            <h2 className="text-2xl font-bold text-brand-yellow">Projected Summary</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-brand-bg-dark/50 p-4 rounded-xl border border-white/5">
+                <p className="text-xs text-brand-muted uppercase font-bold mb-1">Final Balance</p>
+                <p className="text-2xl font-black text-white">{fmt(res.final)}</p>
+              </div>
+              <div className="bg-brand-bg-dark/50 p-4 rounded-xl border border-white/5">
+                <p className="text-xs text-brand-muted uppercase font-bold mb-1">Gross Yield</p>
+                <p className="text-xl font-bold text-brand-yellow">{fmt(res.totalGross)}</p>
+              </div>
+              <div className="bg-brand-bg-dark/50 p-4 rounded-xl border border-white/5">
+                <p className="text-xs text-brand-muted uppercase font-bold mb-1">Total Fees</p>
+                <p className="text-xl font-bold text-red-400">{fmt(res.totalFees)}</p>
+              </div>
+            </div>
 
-            <details class="mt-4">
-              <summary class="underline cursor-pointer text-brand-text hover:text-brand-yellow">Monthly breakdown</summary>
-              <table class="w-full text-sm mt-3 text-center text-brand-text">
-                <thead><tr class="border-b border-brand-muted/50"><th class="py-2">M</th><th>Start</th><th>Earn</th><th>Fee</th><th>End</th></tr></thead>
-                <tbody>
-                  {res.rows.map(r=>(
-                    <tr key={r.m} class="border-b border-brand-muted/20">
-                      <td class="py-2">{r.m}</td>
-                      <td class="py-2">{renderCell(r.start)}</td>
-                      <td class="py-2">{renderCell(r.earnings)}</td>
-                      <td class="py-2">{renderCell(r.perf)}</td>
-                      <td class="py-2">{renderCell(r.end)}</td>
+            <details className="mt-8 group">
+              <summary className="underline cursor-pointer text-brand-text hover:text-brand-yellow font-medium list-none flex items-center gap-2">
+                <span className="group-open:rotate-90 transition-transform">▶</span> Monthly Accrual Breakdown
+              </summary>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm mt-4 text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-brand-muted/30 text-brand-yellow text-xs uppercase tracking-wider">
+                      <th className="py-3 px-2">Month</th>
+                      <th className="py-3 px-2">Principal</th>
+                      <th className="py-3 px-2">Gross Earned</th>
+                      <th className="py-3 px-2">Fee (25%)</th>
+                      <th className="py-3 px-2">Net Added</th>
+                      <th className="py-3 px-2">End Principal</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {res.rows.map(r=>(
+                      <tr key={r.m} className="border-b border-brand-muted/10 hover:bg-brand-bg-dark/30 transition-colors">
+                        <td className="py-3 px-2 font-bold">{r.m}</td>
+                        <td className="py-3 px-2">{renderCell(r.start)}</td>
+                        <td className="py-3 px-2 text-brand-yellow">{renderCell(r.grossEarnings)}</td>
+                        <td className="py-3 px-2 text-red-300/80">{renderCell(r.fee)}</td>
+                        <td className="py-3 px-2 text-green-400">{renderCell(r.netAdded)}</td>
+                        <td className="py-3 px-2 font-semibold text-white">{renderCell(r.end)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </details>
           </section>
         )}

@@ -1,5 +1,6 @@
 {
-  "name": "Vault Calculator 1.2",
-  "description": "A powerful and visually appealing calculator to project investment growth in a vault, featuring live Solana (SOL) price tracking, detailed monthly breakdowns, and graphical representations of your potential earnings.",
-  "requestFramePermissions": []
+  "name": "Vault NewsCast Studio - Calculator 1.3",
+  "description": "A powerful calculator to project investment growth in a vault, now featuring live ETH and SOL price tracking, detailed monthly breakdowns, and graphical representations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }

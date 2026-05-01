@@ -11,11 +11,11 @@
   <script>
     tailwind.config = {
       theme:{extend:{colors:{
-        'brand-bg-dark':'#013a33',
-        'brand-card-bg':'#024c42',
+        'brand-bg-dark':'#112322',
+        'brand-card-bg':'#68ACA8',
         'brand-yellow' :'#f0c555',
-        'brand-text'   :'#bbc9cc',
-        'brand-muted'  :'#69aca3'
+        'brand-text'   :'#ffffff',
+        'brand-muted'  :'#68ACA8'
     }}}}
   </script>
 
@@ -31,12 +31,12 @@
   <style>
     .input-label{font-weight:700;color:#f0c555;margin-bottom:.4rem;display:block}
     .input-field{
-      background:#024c42;border:1px solid #f0c555;border-radius:.75rem;
-      padding:.75rem 1rem;font-weight:600;font-size:1rem;color:#bbc9cc;width:100%
+      background:#68ACA8;border:2px solid #112322;border-radius:.75rem;
+      padding:.75rem 1rem;font-weight:700;font-size:1rem;color:#112322;width:100%
     }
     select.input-field{
       appearance:none;
-      background-image:url("data:image/svg+xml;utf8,<svg fill='%23f0c555' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5H7z'/></svg>");
+      background-image:url("data:image/svg+xml;utf8,<svg fill='%23112322' height='20' viewBox='0 0 24 24' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5H7z'/></svg>");
       background-repeat:no-repeat;background-position:right .9rem center;padding-right:2.2rem
     }
     .badge {
@@ -61,7 +61,7 @@
 
   <div id="app" class="max-w-3xl mx-auto flex-grow"></div>
 
-  <footer class="max-w-3xl mx-auto mt-10 text-center text-xs text-brand-muted leading-snug">
+  <footer class="max-w-3xl mx-auto mt-10 text-center text-xs text-white/50 leading-snug">
     Disclaimer: This tool uses a daily accrual model with monthly compounding (30-day cycle).<br>
     A 25% performance fee is deducted from gross monthly earnings before compounding.
   </footer>
@@ -98,8 +98,8 @@
             {
               label: 'Net Monthly Earnings',
               data: netAddedData,
-              backgroundColor: 'rgba(34, 197, 94, 0.4)',
-              borderColor: 'rgba(34, 197, 94, 1)',
+              backgroundColor: 'rgba(17, 35, 34, 0.4)',
+              borderColor: '#112322',
               borderWidth: 1,
               borderRadius: 4,
               yAxisID: 'y1',
@@ -109,11 +109,11 @@
               label: 'Principal Growth',
               data: balanceData,
               type: 'line',
-              borderColor: '#f0c555',
-              backgroundColor: 'rgba(240, 197, 85, 0.1)',
+              borderColor: '#ffffff',
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
               borderWidth: 3,
               pointRadius: 4,
-              pointBackgroundColor: '#f0c555',
+              pointBackgroundColor: '#ffffff',
               fill: true,
               tension: 0.4,
               yAxisID: 'y',
@@ -132,10 +132,10 @@
             legend: {
               display: true,
               position: 'top',
-              labels: { color: '#bbc9cc', font: { weight: 'bold' } }
+              labels: { color: '#112322', font: { weight: 'bold' } }
             },
             tooltip: {
-              backgroundColor: '#024c42',
+              backgroundColor: '#112322',
               titleColor: '#f0c555',
               bodyColor: '#fff',
               borderColor: '#f0c555',
@@ -147,21 +147,21 @@
               type: 'linear',
               display: true,
               position: 'left',
-              grid: { color: 'rgba(105, 172, 163, 0.1)' },
-              ticks: { color: '#69aca3' },
-              title: { display: true, text: 'Total Balance', color: '#f0c555' }
+              grid: { color: 'rgba(17, 35, 34, 0.1)' },
+              ticks: { color: '#112322' },
+              title: { display: true, text: 'Total Balance', color: '#112322' }
             },
             y1: {
               type: 'linear',
               display: true,
               position: 'right',
               grid: { drawOnChartArea: false },
-              ticks: { color: '#69aca3' },
-              title: { display: true, text: 'Monthly Net', color: '#22c55e' }
+              ticks: { color: '#112322' },
+              title: { display: true, text: 'Monthly Net', color: '#112322' }
             },
             x: {
               grid: { display: false },
-              ticks: { color: '#69aca3' }
+              ticks: { color: '#112322' }
             }
           }
         }
@@ -173,7 +173,7 @@
     }, [data, currencySymbol]);
 
     return (
-      <div className="w-full bg-brand-bg-dark/30 p-4 rounded-xl border border-white/5 mt-4">
+      <div className="w-full bg-white/10 p-4 rounded-xl border border-white/10 mt-4">
         <canvas ref={canvasRef}></canvas>
       </div>
     );
@@ -198,6 +198,50 @@
     // Asset symbol mapping
     const symbolMap = { solana: 'SOL', ethereum: 'ETH' };
     const cryptoSymbol = symbolMap[cryptoId] || '';
+
+    // Quantity / Fiat logic
+    const calcQty = () => {
+      const p = parseFloat(init);
+      if (isNaN(p)) return 0;
+      if (ccy === cryptoSymbol) return p;
+      let usdVal = p;
+      if (ccy === 'GBP' && gbp) usdVal = p / gbp;
+      if (ccy === 'EUR' && eur) usdVal = p / eur;
+      return (usdVal / (cryptoPrice || 1));
+    };
+
+    const handleQtyChange = (val) => {
+      const q = parseFloat(val);
+      if (isNaN(q)) {
+        setInit("");
+        return;
+      }
+      if (ccy === cryptoSymbol) {
+        setInit(q);
+        return;
+      }
+      let usdVal = q * (cryptoPrice || 0);
+      let targetVal = usdVal;
+      if (ccy === 'GBP' && gbp) targetVal = usdVal * gbp;
+      if (ccy === 'EUR' && eur) targetVal = usdVal * eur;
+      setInit(targetVal.toFixed(2));
+    };
+
+    const handleFiatValueChange = (val) => {
+      const v = parseFloat(val);
+      if (isNaN(v)) {
+        setInit("");
+        return;
+      }
+      if (ccy !== cryptoSymbol) {
+        setInit(v);
+        return;
+      }
+      // If we are in Crypto mode, editing USD Value should update Qty (init)
+      if (cryptoPrice) {
+        setInit((v / cryptoPrice).toFixed(4));
+      }
+    };
 
     /* fetch prices for both SOL and ETH */
     useEffect(()=>{
@@ -298,7 +342,7 @@
       return (
         <React.Fragment>
           <div>{fmt(value)}</div>
-          <div className="text-[10px] text-brand-muted">{USD(value * cryptoPrice)}</div>
+          <div className="text-[10px] opacity-70 italic">{USD(value * cryptoPrice)}</div>
         </React.Fragment>
       );
     };
@@ -307,24 +351,24 @@
       <div className="space-y-10">
         {/* live price banner */}
         <div className="text-center mb-0">
-          <div className="inline-block bg-brand-card-bg border border-brand-yellow/50 rounded-full px-6 py-2 text-brand-yellow text-sm sm:text-base font-semibold shadow-md">
+          <div className="inline-block bg-brand-card-bg border-2 border-brand-bg-dark/30 rounded-full px-6 py-2 text-brand-bg-dark text-sm sm:text-base font-bold shadow-md">
             <span className="inline-block px-2">SOL: <span className="text-white">{allPrices.solana ? USD(allPrices.solana) : '---'}</span></span>
-            <span className="mx-2 text-brand-yellow/30">|</span>
+            <span className="mx-2 opacity-30">|</span>
             <span className="inline-block px-2">ETH: <span className="text-white">{allPrices.ethereum ? USD(allPrices.ethereum) : '---'}</span></span>
           </div>
         </div>
 
         <div className="text-center">
           <h1 className="text-4xl sm:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-yellow to-yellow-300 tracking-wide">Vault Accrual Estimator</h1>
-          <p className="text-brand-muted text-lg -mt-1">Performance-Adjusted Daily Accrual Logic</p>
+          <p className="text-white/70 text-lg -mt-1">Performance-Adjusted Daily Accrual Logic</p>
           
-          <div className="mt-6 max-w-xl mx-auto bg-brand-yellow/5 border border-brand-yellow/20 rounded-xl p-4 text-xs sm:text-sm text-brand-yellow/90 italic leading-relaxed shadow-inner">
-            <span className="font-bold not-italic block mb-1 underline">IMPORTANT NOTE</span>
-            Note, the financial calculations are based on the current {cryptoId === 'solana' ? 'Solana' : 'Ethereum'} price. The price may go up as well as down. This calculator represents the High Yield Calculation (Monthly Compounding).
+          <div className="mt-6 max-w-xl mx-auto bg-brand-card-bg border-2 border-brand-bg-dark/20 rounded-xl p-4 text-[11px] sm:text-xs text-brand-bg-dark/80 font-normal leading-relaxed shadow-lg">
+            <span className="font-semibold block mb-1 underline uppercase">No Guarantee of Returns</span>
+            Financial projections are derived from current Solana/Ethereum spot prices; asset volatility may impact total returns. This tool simulates potential fee earnings based on Dynamic Yield monthly compounding protocols. Please note that average daily yields are non-static. This simulation is provided for informational purposes only and should not be construed as a financial guarantee. Past performance is not indicative of future results.
           </div>
         </div>
 
-        <section className="bg-brand-card-bg rounded-2xl p-8 grid gap-x-8 gap-y-6 sm:grid-cols-2 shadow-xl border border-brand-yellow/10">
+        <section className="bg-brand-card-bg rounded-2xl p-8 grid gap-x-8 gap-y-6 sm:grid-cols-2 shadow-2xl border-2 border-brand-bg-dark/10">
           <div>
             <label className="input-label">Asset Type</label>
             <select className="input-field" value={cryptoId} onChange={e=>{
@@ -340,26 +384,23 @@
           <div>
             <label className="input-label">Initial Principal ({ccy})</label>
             <input type="number" className="input-field" value={init} onChange={e=>setInit(e.target.value)}/>
-            <div className="flex justify-between items-center mt-2 px-1">
-              {/* If in Fiat, show Crypto Qty */}
-              {ccy !== cryptoSymbol && cryptoPrice && parseFloat(init) > 0 && (
-                <p className="text-xs text-brand-yellow font-bold uppercase tracking-tight">
-                  ≈ {(() => {
-                    const principal = parseFloat(init);
-                    let usdVal = principal;
-                    if (ccy === 'GBP' && gbp) usdVal = principal / gbp;
-                    if (ccy === 'EUR' && eur) usdVal = principal / eur;
-                    return (usdVal / cryptoPrice).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-                  })()} {cryptoSymbol}
-                </p>
-              )}
-              {/* If in Crypto, show USD Value */}
-              {ccy === cryptoSymbol && cryptoPrice && parseFloat(init) > 0 && (
-                <p className="text-xs text-brand-muted font-semibold">
-                  ≈ {USD(parseFloat(init) * cryptoPrice)}
-                </p>
-              )}
-            </div>
+          </div>
+          <div>
+            <label className="input-label">
+              {ccy === cryptoSymbol ? 'Equivalent Value (USD)' : `Quantity (${cryptoSymbol})`}
+            </label>
+            <input 
+              type="number" 
+              className="input-field" 
+              value={ccy === cryptoSymbol 
+                ? (parseFloat(init) * (cryptoPrice || 0)).toFixed(2) 
+                : calcQty().toFixed(4)
+              } 
+              onChange={e => {
+                if (ccy === cryptoSymbol) handleFiatValueChange(e.target.value);
+                else handleQtyChange(e.target.value);
+              }}
+            />
           </div>
           <div>
             <label className="input-label">Display Currency</label>
@@ -384,55 +425,55 @@
         </section>
 
         {res && cryptoPrice && (
-          <section className="bg-brand-card-bg rounded-2xl p-8 space-y-6 text-brand-text shadow-2xl border-t-4 border-brand-yellow relative overflow-hidden">
+          <section className="bg-brand-card-bg rounded-2xl p-8 space-y-6 text-brand-bg-dark shadow-2xl border-t-4 border-brand-yellow relative overflow-hidden">
             <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
-               <span className="badge">Monthly Compounding</span>
-               <span className="badge">25% Fee Applied</span>
+               <span className="badge !bg-brand-bg-dark/10 !border-brand-bg-dark/20 !text-brand-bg-dark">Monthly Compounding</span>
+               <span className="badge !bg-brand-bg-dark/10 !border-brand-bg-dark/20 !text-brand-bg-dark">25% Fee Applied</span>
             </div>
             
-            <h2 className="text-2xl font-bold text-brand-yellow">Projected Summary</h2>
+            <h2 className="text-2xl font-black uppercase tracking-tight">Projected Summary</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-brand-bg-dark/50 p-4 rounded-xl border border-white/5">
-                <p className="text-xs text-brand-muted uppercase font-bold mb-1">Final Balance</p>
-                <p className="text-2xl font-black text-white">{fmt(res.final)}</p>
+              <div className="bg-brand-bg-dark/10 p-4 rounded-xl border border-brand-bg-dark/10">
+                <p className="text-[10px] font-bold uppercase opacity-60 mb-1">Final Balance</p>
+                <p className="text-2xl font-black">{fmt(res.final)}</p>
               </div>
-              <div className="bg-brand-bg-dark/50 p-4 rounded-xl border border-white/5">
-                <p className="text-xs text-brand-muted uppercase font-bold mb-1">Gross Yield</p>
-                <p className="text-xl font-bold text-brand-yellow">{fmt(res.totalGross)}</p>
+              <div className="bg-brand-bg-dark/10 p-4 rounded-xl border border-brand-bg-dark/10">
+                <p className="text-[10px] font-bold uppercase opacity-60 mb-1">Gross Yield</p>
+                <p className="text-xl font-bold">{fmt(res.totalGross)}</p>
               </div>
-              <div className="bg-brand-bg-dark/50 p-4 rounded-xl border border-white/5">
-                <p className="text-xs text-brand-muted uppercase font-bold mb-1">Total Fees</p>
-                <p className="text-xl font-bold text-red-400">{fmt(res.totalFees)}</p>
+              <div className="bg-brand-bg-dark/10 p-4 rounded-xl border border-brand-bg-dark/10">
+                <p className="text-[10px] font-bold uppercase opacity-60 mb-1">Total Fees</p>
+                <p className="text-xl font-bold text-red-900/60">{fmt(res.totalFees)}</p>
               </div>
             </div>
 
             <GrowthChart data={res.rows} currencySymbol={ccy} />
 
             <details className="mt-8 group">
-              <summary className="underline cursor-pointer text-brand-text hover:text-brand-yellow font-medium list-none flex items-center gap-2">
+              <summary className="underline cursor-pointer font-bold hover:text-white transition-colors list-none flex items-center gap-2">
                 <span className="group-open:rotate-90 transition-transform">▶</span> Monthly Accrual Breakdown
               </summary>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm mt-4 text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-brand-muted/30 text-brand-yellow text-xs uppercase tracking-wider">
+                    <tr className="border-b-2 border-brand-bg-dark/20 text-brand-bg-dark/60 text-[10px] uppercase font-black tracking-widest">
                       <th className="py-3 px-2">Month</th>
                       <th className="py-3 px-2">Principal</th>
                       <th className="py-3 px-2">Gross Earned</th>
                       <th className="py-3 px-2">Fee (25%)</th>
                       <th className="py-3 px-2">Net Added</th>
-                      <th className="py-3 px-2">End Principal</th>
+                      <th className="py-3 px-2 text-right">End Principal</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-brand-bg-dark/10">
                     {res.rows.map(r=>(
-                      <tr key={r.m} className="border-b border-brand-muted/10 hover:bg-brand-bg-dark/30 transition-colors">
-                        <td className="py-3 px-2 font-bold">{r.m}</td>
+                      <tr key={r.m} className="hover:bg-brand-bg-dark/5 transition-colors">
+                        <td className="py-3 px-2 font-black">#{r.m}</td>
                         <td className="py-3 px-2">{renderCell(r.start)}</td>
-                        <td className="py-3 px-2 text-brand-yellow">{renderCell(r.grossEarnings)}</td>
-                        <td className="py-3 px-2 text-red-300/80">{renderCell(r.fee)}</td>
-                        <td className="py-3 px-2 text-green-400">{renderCell(r.netAdded)}</td>
-                        <td className="py-3 px-2 font-semibold text-white">{renderCell(r.end)}</td>
+                        <td className="py-3 px-2 font-bold">{renderCell(r.grossEarnings)}</td>
+                        <td className="py-3 px-2 text-red-900/40">{renderCell(r.fee)}</td>
+                        <td className="py-3 px-2 font-black underline decoration-brand-bg-dark/20">{renderCell(r.netAdded)}</td>
+                        <td className="py-3 px-2 font-black text-right">{renderCell(r.end)}</td>
                       </tr>
                     ))}
                   </tbody>
